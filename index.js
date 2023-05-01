@@ -1,91 +1,51 @@
 'use strict'
-const express = require('express')
-const httpErrors = require('http-errors')
-const pino = require('pino')
-const pinoHttp = require('pino-http')
+const express = require('express');
+const httpErrors = require('http-errors');
+const cors = require('cors');
+require('dotenv').config();
 
-module.exports = function main (options, cb) {
-  // Set default options
-  const ready = cb || function () {}
-  const opts = Object.assign({
-    // Default options
-  }, options)
+const routers = require('./routes/routers');
 
-  const logger = pino()
+// Create the express app
+const app = express();
 
-  // Server state
-  let server
-  let serverStarted = false
-  let serverClosing = false
+// Database
 
-  // Setup error handling
-  function unhandledError (err) {
-    // Log the errors
-    logger.error(err)
+// CORS
+app.use( cors() );
 
-    // Only clean up once
-    if (serverClosing) {
-      return
-    }
-    serverClosing = true
+// Public resources
+app.use( express.static('public') );
 
-    // If server has started, close it down
-    if (serverStarted) {
-      server.close(function () {
-        process.exit(1)
-      })
-    }
+// Body parser
+app.use( express.json() );
+
+// Routes
+routers.forEach(({path, route}) => {
+  app.use(path, route);
+});
+
+app.get( '*', (req, res) => {
+  res.sendFile( __dirname + '/public/index.html' );
+});
+
+// Common error handlers
+app.use(function fourOhFourHandler (req, res, next) {
+  next(httpErrors(404, `Route not found: ${req.url}`));
+});
+app.use(function fiveHundredHandler (err, req, res, next) {
+  if (err.status >= 500) {
+    logger.error(err);
   }
-  process.on('uncaughtException', unhandledError)
-  process.on('unhandledRejection', unhandledError)
-
-  // Create the express app
-  const app = express()
-
-
-  // Common middleware
-  // app.use(/* ... */)
-  app.use(pinoHttp({ logger }))
-      
-  // Register routes
-  // @NOTE: require here because this ensures that even syntax errors
-  // or other startup related errors are caught logged and debuggable.
-  // Alternativly, you could setup external log handling for startup
-  // errors and handle them outside the node process.  I find this is
-  // better because it works out of the box even in local development.
-  require('./routes')(app, opts)
-
-  // Common error handlers
-  app.use(function fourOhFourHandler (req, res, next) {
-    next(httpErrors(404, `Route not found: ${req.url}`))
+  res.status(err.status || 500).json({
+    messages: [{
+      code: err.code || 'InternalServerError',
+      message: err.message
+    }]
   })
-  app.use(function fiveHundredHandler (err, req, res, next) {
-    if (err.status >= 500) {
-      logger.error(err)
-    }
-    res.status(err.status || 500).json({
-      messages: [{
-        code: err.code || 'InternalServerError',
-        message: err.message
-      }]
-    })
-  })
+});
 
-  // Start server
-  server = app.listen(opts.port, opts.host, function (err) {
-    if (err) {
-      return ready(err, app, server)
-    }
-
-    // If some other error means we should close
-    if (serverClosing) {
-      return ready(new Error('Server was closed before it could start'))
-    }
-
-    serverStarted = true
-    const addr = server.address()
-    logger.info(`Started at ${opts.host || addr.host || 'localhost'}:${addr.port}`)
-    ready(err, app, server)
-  })
-}
-
+// Start server
+app.listen( process.env.PORT, () => {
+  console.log(`Server up on port ${ process.env.PORT }`)
+});

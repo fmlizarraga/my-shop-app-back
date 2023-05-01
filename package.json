@@ -1,5 +1,5 @@
 {
-  "name": "My Shop API",
+  "name": "my-shop-api",
   "version": "1.0.0",
   "description": "This is the backend for the My Shop App, an e-commerce platform that allows users to buy and sell products online. This backend is built with Node.js and Express.js, and communicates with the database through an ORM (Object-Relational Mapping) called Sequelize.",
   "author": "fml <lizarragafranco91@gmail.com>",
@@ -18,9 +18,12 @@
   },
   "scripts": {
     "start": "./bin/app",
+    "dev": "nodemon index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.3",
     "express": "^4.18.2",
     "http-errors": "^2.0.0",
     "pino": "^8.11.0",
